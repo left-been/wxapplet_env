@@ -1,11 +1,12 @@
 /**
  * 设备指纹采集核心模块
  * - 按维度采集：设备 / 窗口 / 应用环境 / 网络 / 时区 / 电池 / 传感器 / Canvas2D / WebGL
+ * - 模拟器嫌疑检测（基于 device/win/webgl 联合规则打分）
  * - 稳定化 JSON + FNV-1a 生成指纹 ID（借鉴数美/顶象「本地哈希」思路）
  * - fpId 写入 storage 缓存，二次进入直接复用
  * 所有维度失败均降级处理，不阻塞整体采集。
  */
-const FPVersion = '1.1.0'
+const FPVersion = '1.2.0'
 const FP_KEY = 'fp_demo_device_id'
 const DRAW_SIZE = 160
 
@@ -251,6 +252,54 @@ function collectSensors() {
 }
 
 /**
+ * 模拟器/开发者工具嫌疑检测（借鉴数美/顶象多特征联合思路）。
+ * 基于已采集的 device / window / webgl 维度做规则打分，输出结论供展示。
+ * 规则（强→弱）：
+ *   devtools      平台=devtools（开发者工具）
+ *   emu_abi      abi 含 x86 / emulator（真机几乎全为 arm 架构）
+ *   soft_renderer WebGL 渲染器为软件渲染（SwiftShader/llvmpipe/Basic Render）或 ANGLE+桌面GPU
+ *   emu_model     model 含 sdk_gphone / Emulator / SDK built for x86 等模拟器型号
+ *   weak_bench    benchmarkLevel 异常低
+ *   pc_like       无安全区信息（PC 显示器/无刘海）
+ * @param {object} categories 已采集的维度数据
+ * @returns {object} { verdict, score, signals }；verdict: likely_emulator / suspicious / real_device
+ */
+function detectSimulator(categories) {
+  const device = categories.device || {}
+  const window = categories.window || {}
+  const webgl = categories.webgl || {}
+  const signals = []
+  let score = 0
+
+  function addRule(name, value, weight, hit) {
+    const v = (value === undefined || value === null || value === '') ? '—' : String(value)
+    if (hit) {
+      score += weight
+      signals.push(name + '=' + v)
+    }
+  }
+
+  addRule('platform', device.platform, 100, device.platform === 'devtools')
+  const abi = String(device.abi || '')
+  addRule('abi', abi, 60, /x86|emulator/i.test(abi.toLowerCase()))
+  const model = String(device.model || '')
+  addRule('model', model, 50, /sdk_gphone|emulator|android sdk built|unknown/i.test(model.toLowerCase()))
+  const renderer = String(webgl.renderer || '')
+  addRule('renderer', renderer, 70, /swiftshader|llvmpipe|basic render/i.test(renderer.toLowerCase()))
+  addRule('renderer(ANGLE+桌面GPU)', renderer, 40, /angle/i.test(renderer.toLowerCase()) && /intel|microsoft|amd|nvidia/i.test(renderer.toLowerCase()))
+  const vendor = String(webgl.vendor || '')
+  addRule('vendor', vendor, 20, /microsoft|google inc/i.test(vendor.toLowerCase()))
+  const benchmarkLevel = device.benchmarkLevel
+  addRule('benchmarkLevel', benchmarkLevel, 30, typeof benchmarkLevel === 'number' && benchmarkLevel > 0 && benchmarkLevel < 20)
+  addRule('safeArea', window.safeArea ? 'present' : 'missing', 15, !window.safeArea && window.windowHeight > 0)
+
+  let verdict = 'real_device'
+  if (score >= 90) verdict = 'likely_emulator'
+  else if (score >= 40) verdict = 'suspicious'
+  return { verdict: verdict, score: score, signals: signals }
+}
+
+/**
  * 通过 SelectorQuery 获取隐藏 canvas 节点（含尺寸信息）。
  * 2d 与 webgl 节点通用；节点未就绪返回 null。
  * @param {string} selector canvas 节点的 id 选择器（如 '#fp-canvas-2d'）
@@ -402,6 +451,7 @@ function collectAll() {
         categories.network = arr[2]
         categories.battery = arr[3]
         categories.sensors = arr[4]
+        categories.simulator = detectSimulator(categories)
         resolve({
           fpVersion: FPVersion,
           fpId: generateFpId(categories),

@@ -10,7 +10,8 @@ const CATEGORY_META = {
   battery: { label: '电池' },
   sensors: { label: '传感器' },
   canvas2d: { label: 'Canvas2D 渲染指纹' },
-  webgl: { label: 'WebGL 渲染指纹' }
+  webgl: { label: 'WebGL 渲染指纹' },
+  simulator: { label: '模拟器检测' }
 }
 
 /**

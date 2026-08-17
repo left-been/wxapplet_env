@@ -2,6 +2,19 @@
 
 本文件记录各版本的功能新增 / 变更 / 回退。遵循语义化版本。
 
+## [v1.2.0] - 2026-08-17
+
+### 新增
+- 检测维度「模拟器嫌疑」：`detectSimulator` 基于 device / window / webgl 联合打分。
+  - 强信号：platform=devtools、abi 含 x86、WebGL 软件渲染器（SwiftShader/llvmpipe/Basic Render）、model 模拟器关键字。
+  - 弱信号：ANGLE+桌面 GPU、benchmarkLevel 异常低、无 safeArea。
+- 输出 `{ verdict, score, signals }`，verdict ∈ { likely_emulator, suspicious, real_device }。
+- 页面新增「模拟器检测」分组展示；`FPVersion` 提升至 `1.2.0`。
+
+### 说明
+- 静态启发式规则，非模型判定；开发者工具因 ANGLE 渲染常被判 suspicious，属预期。
+- 指纹算法未变，仅新增派生维度入种子。
+
 ## [v1.1.0] - 2026-08-16
 
 ### 新增
