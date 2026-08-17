@@ -26,18 +26,18 @@
 
 ## 采集维度
 
-| 分组 | 数据源 | 说明 |
-|---|---|---|
-| device | `wx.getDeviceInfo` | brand / model / system / platform / abi / benchmarkLevel |
-| window | `wx.getWindowInfo` | pixelRatio / 屏幕尺寸 / 安全区 / 状态栏 |
-| app | `wx.getAppBaseInfo` | SDKVersion / 小程序版本 / 语言 / 主题 / 字体 / 宿主 |
-| network | `wx.getNetworkType` | 网络类型 / 信号强度（动态） |
-| misc | JS 原生 | 时区偏移 / Intl 时区 / UA |
-| battery | `wx.getBatteryInfo` | 电量 / 充电状态（动态） |
-| sensors | 传感器 API | 加速度计 / 罗盘 / 陀螺仪首读数（动态） |
-| canvas2d | 隐藏 `<canvas type="2d">` | 固定图案渲染像素哈希 |
-| webgl | 隐藏 `<canvas type="webgl">` | GPU 厂商/渲染器 + readPixels 像素哈希 |
-| simulator | 派生分析 | 模拟器/开发者工具嫌疑结论与逐维度明细 |
+| 分组        | 数据源                        | 说明                                                       |
+| --------- | -------------------------- | -------------------------------------------------------- |
+| device    | `wx.getDeviceInfo`         | brand / model / system / platform / abi / benchmarkLevel |
+| window    | `wx.getWindowInfo`         | pixelRatio / 屏幕尺寸 / 安全区 / 状态栏                            |
+| app       | `wx.getAppBaseInfo`        | SDKVersion / 小程序版本 / 语言 / 主题 / 字体 / 宿主                   |
+| network   | `wx.getNetworkType`        | 网络类型 / 信号强度（动态）                                          |
+| misc      | JS 原生                      | 时区偏移 / Intl 时区 / UA                                      |
+| battery   | `wx.getBatteryInfo`        | 电量 / 充电状态（动态）                                            |
+| sensors   | 传感器 API                    | 加速度计 / 罗盘 / 陀螺仪首读数（动态）                                   |
+| canvas2d  | 隐藏 `<canvas type="2d">`    | 固定图案渲染像素哈希                                               |
+| webgl     | 隐藏 `<canvas type="webgl">` | GPU 厂商/渲染器 + readPixels 像素哈希                             |
+| simulator | 派生分析                       | 模拟器/开发者工具嫌疑结论与逐维度明细                                      |
 
 > 动态维度（network / battery / sensors）随时间变化，仅作展示与辅助判断，不参与指纹生成。
 
@@ -55,16 +55,16 @@ fpId = FNV-1a( fpVersion || stableJSON(静态维度) )
 
 基于已采集维度联合打分，每条规则输出 维度名 / 观测值 / 权重 / 是否命中：
 
-| 规则 | 观测值示例 | 权重 |
-|---|---|---|
-| platform | devtools | +100 |
-| abi | x86_64 | +60 |
-| model | sdk_gphone64_x86_64 | +50 |
-| renderer | SwiftShader / llvmpipe | +70 |
-| renderer(ANGLE+桌面GPU) | ANGLE (Intel, ...) | +40 |
-| vendor | Microsoft | +20 |
-| benchmarkLevel | < 20 | +30 |
-| safeArea | missing | +15 |
+| 规则                    | 观测值示例                  | 权重   |
+| --------------------- | ---------------------- | ---- |
+| platform              | devtools               | +100 |
+| abi                   | x86_64                 | +60  |
+| model                 | sdk_gphone64_x86_64    | +50  |
+| renderer              | SwiftShader / llvmpipe | +70  |
+| renderer(ANGLE+桌面GPU) | ANGLE (Intel, ...)     | +40  |
+| vendor                | Microsoft              | +20  |
+| benchmarkLevel        | < 20                   | +30  |
+| safeArea              | missing                | +15  |
 
 结论：`score >= 90` → likely_emulator；`>= 40` → suspicious；其余 → real_device。
 
@@ -113,3 +113,7 @@ fpId = FNV-1a( fpVersion || stableJSON(静态维度) )
 ## License
 
 [MIT](LICENSE)
+
+## 运行截图
+
+<img title="" src="docs/images/sp1.png" alt="运行截图" data-align="center" width="291">
