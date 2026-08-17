@@ -1,0 +1,6 @@
+page {
+  background: #f5f6f7;
+  font-size: 14px;
+  color: #333;
+  -webkit-font-smoothing: antialiased;
+}

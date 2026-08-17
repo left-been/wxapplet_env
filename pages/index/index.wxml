@@ -1,0 +1,36 @@
+<view class="page">
+
+  <view class="header">
+    <view class="logo">
+      <view class="logo-ring"></view>
+      <view class="logo-text">ENV</view>
+    </view>
+    <view class="header-info">
+      <view class="header-title">设备指纹采集</view>
+      <view class="header-sub">Device Fingerprint Collector</view>
+    </view>
+  </view>
+
+  <view class="fp-card">
+    <view class="fp-title">设备指纹 ID</view>
+    <view class="fp-id" wx:if="{{fpId}}">{{fpId}}</view>
+    <view class="fp-sub" wx:if="{{collectedAt}}">采集时间：{{collectedAt}}</view>
+    <view class="fp-actions">
+      <button class="btn" size="mini" bindtap="refresh" disabled="{{loading}}">{{loading ? '采集中...' : '重新采集'}}</button>
+      <button class="btn" size="mini" bindtap="onCopy" disabled="{{loading}}">复制 JSON</button>
+    </view>
+    <view class="copy-tip" wx:if="{{copyTip}}">{{copyTip}}</view>
+  </view>
+
+  <view class="section" wx:for="{{sections}}" wx:key="id">
+    <view class="section-title">{{item.label}}</view>
+    <view class="row" wx:for="{{item.items}}" wx:for-item="cell" wx:key="k">
+      <view class="row-k">{{cell.k}}</view>
+      <view class="row-v">{{cell.v}}</view>
+    </view>
+  </view>
+
+</view>
+
+<canvas type="2d" id="fp-canvas-2d" class="fp-canvas"></canvas>
+<canvas type="webgl" id="fp-canvas-webgl" class="fp-canvas"></canvas>
