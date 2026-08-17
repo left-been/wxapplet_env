@@ -3,10 +3,11 @@
  * - 按维度采集：设备 / 窗口 / 应用环境 / 网络 / 时区 / 电池 / 传感器 / Canvas2D / WebGL
  * - 模拟器嫌疑检测（基于 device/win/webgl 联合规则打分）
  * - 稳定化 JSON + FNV-1a 生成指纹 ID（借鉴数美/顶象「本地哈希」思路）
+ * - fpId 只哈希静态维度（动态维度如电池/传感器/网络仅展示，避免每次采集指纹跳动）
  * - fpId 写入 storage 缓存，二次进入直接复用
  * 所有维度失败均降级处理，不阻塞整体采集。
  */
-const FPVersion = '1.2.0'
+const FPVersion = '1.2.1'
 const FP_KEY = 'fp_demo_device_id'
 const DRAW_SIZE = 160
 
@@ -421,13 +422,25 @@ function collectWebGL() {
 }
 
 /**
- * 生成指纹 ID：以「指纹版本 + 稳定化全量维度 JSON」为种子做 FNV-1a。
+ * 动态维度：读数随时间/环境变化，若进入指纹种子会导致同设备每次采集 fpId 不同。
+ * 故仅作展示与辅助判断，从指纹种子中剔除。
+ */
+const DYNAMIC_FP_KEYS = ['battery', 'sensors', 'network']
+
+/**
+ * 生成指纹 ID：以「指纹版本 + 稳定化静态维度 JSON」为种子做 FNV-1a。
  * fpVersion 参与种子 → 指纹算法升级后历史 fpId 不再可比。
+ * 动态维度（电池/传感器/网络）会被剔除，保证同设备重复采集 fpId 稳定。
  * @param {object} categories 全量采集维度数据
  * @returns {string} 8 位十六进制指纹 ID
  */
 function generateFpId(categories) {
-  const seed = FPVersion + stableStringify(categories)
+  const stable = {}
+  Object.keys(categories).forEach(function (k) {
+    if (DYNAMIC_FP_KEYS.indexOf(k) !== -1) return
+    stable[k] = categories[k]
+  })
+  const seed = FPVersion + stableStringify(stable)
   return fnv1a(seed)
 }
 
