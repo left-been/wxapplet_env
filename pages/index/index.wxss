@@ -147,3 +147,14 @@
   word-break: break-all;
   text-align: right;
 }
+
+.row-x {
+  display: inline-block;
+  margin-left: 12rpx;
+  padding: 2rpx 12rpx;
+  border-radius: 8rpx;
+  font-size: 11px;
+  font-family: sans-serif;
+  background: #f0f0f0;
+  color: #666;
+}

@@ -263,17 +263,20 @@ function collectSensors() {
  *   weak_bench    benchmarkLevel 异常低
  *   pc_like       无安全区信息（PC 显示器/无刘海）
  * @param {object} categories 已采集的维度数据
- * @returns {object} { verdict, score, signals }；verdict: likely_emulator / suspicious / real_device
+ * @returns {object} { verdict, score, signals, rules }；verdict: likely_emulator / suspicious / real_device；
+ *   rules: 逐维度明细 [{ name, value, weight, hit }]（rules 为派生展示数据，不参与 fpId 种子）
  */
 function detectSimulator(categories) {
   const device = categories.device || {}
   const window = categories.window || {}
   const webgl = categories.webgl || {}
+  const rules = []
   const signals = []
   let score = 0
 
   function addRule(name, value, weight, hit) {
     const v = (value === undefined || value === null || value === '') ? '—' : String(value)
+    rules.push({ name: name, value: v, weight: weight, hit: !!hit })
     if (hit) {
       score += weight
       signals.push(name + '=' + v)
@@ -297,7 +300,7 @@ function detectSimulator(categories) {
   let verdict = 'real_device'
   if (score >= 90) verdict = 'likely_emulator'
   else if (score >= 40) verdict = 'suspicious'
-  return { verdict: verdict, score: score, signals: signals }
+  return { verdict: verdict, score: score, signals: signals, rules: rules }
 }
 
 /**
@@ -431,6 +434,7 @@ const DYNAMIC_FP_KEYS = ['battery', 'sensors', 'network']
  * 生成指纹 ID：以「指纹版本 + 稳定化静态维度 JSON」为种子做 FNV-1a。
  * fpVersion 参与种子 → 指纹算法升级后历史 fpId 不再可比。
  * 动态维度（电池/传感器/网络）会被剔除，保证同设备重复采集 fpId 稳定。
+ * simulator.rules 为派生展示明细（可由种子内数据完全推导），同样剔除，避免 fpId 无意义重算。
  * @param {object} categories 全量采集维度数据
  * @returns {string} 8 位十六进制指纹 ID
  */
@@ -438,7 +442,12 @@ function generateFpId(categories) {
   const stable = {}
   Object.keys(categories).forEach(function (k) {
     if (DYNAMIC_FP_KEYS.indexOf(k) !== -1) return
-    stable[k] = categories[k]
+    let value = categories[k]
+    if (k === 'simulator' && value && value.rules) {
+      value = Object.assign({}, value)
+      delete value.rules
+    }
+    stable[k] = value
   })
   const seed = FPVersion + stableStringify(stable)
   return fnv1a(seed)

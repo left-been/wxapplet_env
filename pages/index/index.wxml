@@ -26,7 +26,7 @@
     <view class="section-title">{{item.label}}</view>
     <view class="row" wx:for="{{item.items}}" wx:for-item="cell" wx:key="k">
       <view class="row-k">{{cell.k}}</view>
-      <view class="row-v">{{cell.v}}</view>
+      <view class="row-v">{{cell.v}}<text class="row-x" wx:if="{{cell.extra}}">{{cell.extra}}</text></view>
     </view>
   </view>
 

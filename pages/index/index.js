@@ -27,6 +27,7 @@ function fmt(v) {
 
 /**
  * 把采集结果 categories 转成页面分组结构，供 WXML 列表渲染。
+ * simulator 分组特殊处理：逐维度展示判定明细（维度名/观测值/命中加分）。
  * @param {object} categories 采集模块返回的全量维度数据
  * @returns {Array<{id:string,label:string,items:Array<{k:string,v:string}>}>} 分组列表
  */
@@ -35,12 +36,34 @@ function buildSections(categories) {
   Object.keys(CATEGORY_META).forEach(function (key) {
     const raw = categories[key]
     if (!raw) return
-    const items = Object.keys(raw).map(function (k) {
-      return { k: k, v: fmt(raw[k]) }
-    })
+    const items = key === 'simulator'
+      ? buildSimulatorItems(raw)
+      : Object.keys(raw).map(function (k) {
+        return { k: k, v: fmt(raw[k]) }
+      })
     sections.push({ id: key, label: CATEGORY_META[key].label, items: items })
   })
   return sections
+}
+
+/**
+ * 模拟器检测分组明细：verdict / score + 每条规则的 维度名 / 观测值 / 命中加分徽标
+ * @param {object} sim detectSimulator 的输出（含 rules）
+ * @returns {Array<{k:string,v:string,extra?:string}>} 页面行数据
+ */
+function buildSimulatorItems(sim) {
+  const items = [
+    { k: 'verdict', v: String(sim.verdict) },
+    { k: 'score', v: String(sim.score) }
+  ]
+  ;(sim.rules || []).forEach(function (r) {
+    items.push({
+      k: r.name,
+      v: r.value,
+      extra: r.hit ? '+' + r.weight : '—'
+    })
+  })
+  return items
 }
 
 Page({

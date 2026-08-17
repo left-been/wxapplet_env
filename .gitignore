@@ -1,0 +1,22 @@
+# dependencies / build
+node_modules/
+miniprogram_npm/
+package-lock.json
+
+# WeChat DevTools 私有配置（含用户本地信息，不应入库）
+project.private.config.json
+
+# 本地工具缓存
+.idea/
+.vscode/
+*.iml
+*.log
+npm-debug.log*
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 构建产物
+dist/
+build/
