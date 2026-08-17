@@ -1,11 +1,11 @@
 /**
  * 设备指纹采集核心模块
- * - 按维度采集：设备 / 窗口 / 应用环境 / 网络 / 时区 / Canvas2D / WebGL
+ * - 按维度采集：设备 / 窗口 / 应用环境 / 网络 / 时区 / 电池 / 传感器 / Canvas2D / WebGL
  * - 稳定化 JSON + FNV-1a 生成指纹 ID（借鉴数美/顶象「本地哈希」思路）
  * - fpId 写入 storage 缓存，二次进入直接复用
  * 所有维度失败均降级处理，不阻塞整体采集。
  */
-const FPVersion = '1.0.0'
+const FPVersion = '1.1.0'
 const FP_KEY = 'fp_demo_device_id'
 const DRAW_SIZE = 160
 
@@ -156,6 +156,101 @@ function collectMisc() {
 }
 
 /**
+ * 采集「电池」维度：电量 + 是否充电。
+ * 优先 sync API，回退 callback API；两者都不可用返回空对象。
+ * @returns {Promise<object>} { level, isCharging }
+ */
+function collectBattery() {
+  return new Promise(function (resolve) {
+    try {
+      if (wx.getBatteryInfoSync) {
+        resolve(pick(wx.getBatteryInfoSync(), ['level', 'isCharging']))
+        return
+      }
+    } catch (e) {}
+    if (wx.getBatteryInfo) {
+      wx.getBatteryInfo({
+        success: function (res) {
+          resolve(pick(res, ['level', 'isCharging']))
+        },
+        fail: function () {
+          resolve({})
+        }
+      })
+    } else {
+      resolve({})
+    }
+  })
+}
+
+// 传感器探测配置：key / 启动 / 停止 / 监听 / 字段
+const SENSOR_PROBES = [
+  { key: 'accelerometer', start: 'startAccelerometer', stop: 'stopAccelerometer', on: 'onAccelerometerChange', off: 'offAccelerometerChange', fields: ['x', 'y', 'z'] },
+  { key: 'compass', start: 'startCompass', stop: 'stopCompass', on: 'onCompassChange', off: 'offCompassChange', fields: ['direction', 'accuracy'] },
+  { key: 'gyroscope', start: 'startGyroscope', stop: 'stopGyroscope', on: 'onGyroscopeChange', off: 'offGyroscopeChange', fields: ['x', 'y', 'z'] }
+]
+
+/**
+ * 探测单个传感器：注册监听 → 启动 → 取首个有效读数后停止。
+ * 模拟器/开发者工具常失败或返回全 0（本身就是一种区分信号）。
+ * @param {object} cfg 传感器配置（见 SENSOR_PROBES）
+ * @returns {Promise<object>} { key: {x,y,z} | {unsupported} }
+ */
+function probeSensor(cfg) {
+  return new Promise(function (resolve) {
+    const startFn = wx[cfg.start]
+    const onFn = wx[cfg.on]
+    const offFn = wx[cfg.off]
+    const stopFn = wx[cfg.stop]
+    if (!startFn || !onFn) {
+      resolve({ [cfg.key]: { unsupported: 'api missing' } })
+      return
+    }
+    let done = false
+    let timer = null
+    const finish = function (data) {
+      if (done) return
+      done = true
+      if (timer) clearTimeout(timer)
+      try { if (offFn) offFn(handler) } catch (e) {}
+      try { if (stopFn) stopFn({}) } catch (e) {}
+      resolve({ [cfg.key]: data })
+    }
+    const handler = function (res) {
+      const clean = pick(res, cfg.fields)
+      if (Object.keys(clean).length) finish(clean)
+    }
+    timer = setTimeout(function () {
+      finish({ unsupported: 'timeout / no data' })
+    }, 1000)
+    try {
+      onFn(handler)
+      startFn({
+        interval: 'normal',
+        success: function () {},
+        fail: function () { finish({ unsupported: 'start fail' }) }
+      })
+    } catch (e) {
+      finish({ unsupported: e.message })
+    }
+  })
+}
+
+/**
+ * 采集「传感器」维度：加速度计 / 罗盘 / 陀螺仪并行探测。
+ * @returns {Promise<object>} { accelerometer, compass, gyroscope }，各自可能带 unsupported
+ */
+function collectSensors() {
+  return Promise.all(SENSOR_PROBES.map(probeSensor)).then(function (arr) {
+    const out = {}
+    arr.forEach(function (o) {
+      Object.assign(out, o)
+    })
+    return out
+  })
+}
+
+/**
  * 通过 SelectorQuery 获取隐藏 canvas 节点（含尺寸信息）。
  * 2d 与 webgl 节点通用；节点未就绪返回 null。
  * @param {string} selector canvas 节点的 id 选择器（如 '#fp-canvas-2d'）
@@ -301,10 +396,12 @@ function collectAll() {
         app: collectApp(),
         misc: collectMisc()
       }
-      Promise.all([collectCanvas2D(), collectWebGL(), collectNetwork()]).then(function (arr) {
+      Promise.all([collectCanvas2D(), collectWebGL(), collectNetwork(), collectBattery(), collectSensors()]).then(function (arr) {
         categories.canvas2d = arr[0]
         categories.webgl = arr[1]
         categories.network = arr[2]
+        categories.battery = arr[3]
+        categories.sensors = arr[4]
         resolve({
           fpVersion: FPVersion,
           fpId: generateFpId(categories),
